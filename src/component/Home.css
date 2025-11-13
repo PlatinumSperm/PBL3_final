@@ -334,6 +334,14 @@
   margin: 16px 0;
 }
 
+.popup-content .countdown-display {
+  color: #FF6B6B;
+  font-size: 48px;
+  font-weight: bold;
+  margin: 20px 0;
+  text-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+}
+
 .popup-buttons {
   display: flex;
   justify-content: center;

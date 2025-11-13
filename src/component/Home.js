@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { doc, updateDoc } from "firebase/firestore";
 import Navbar from "./Navbar";
 import Hero from "./Hero";
 import { activityThresholds, analyzeHeartData, getSuggestedActivity } from "../utils/heartrules";
@@ -44,11 +45,14 @@ export default function Home() {
   const [countdownTime, setCountdownTime] = useState(10);
   const [recentBpmValues, setRecentBpmValues] = useState([]);
   const [suggestedActivity, setSuggestedActivity] = useState(null);
+  const [thresholdExceedCount, setThresholdExceedCount] = useState(0); // Track consecutive threshold breaches
+  const [isDataPausedForPopup, setIsDataPausedForPopup] = useState(false); // Pause data during popup
   
   // Refs for timers
   const warningTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const noDataTimerRef = useRef(null);
+  const dataPauseTimerRef = useRef(null);
 
   // Activity thresholds
   const activityThresholds = {
@@ -70,6 +74,23 @@ export default function Home() {
     });
     return () => unsubscribe();
   }, [navigate]);
+
+  // ✅ Hàm cập nhật activity mode và lưu vào Firestore
+  const updateActivityMode = async (newActivity) => {
+    setActivityMode(newActivity);
+    if (uid) {
+      try {
+        const userDocRef = doc(db, "users", uid);
+        await updateDoc(userDocRef, {
+          activityMode: newActivity,
+          lastActivityUpdate: new Date().toISOString()
+        });
+        console.log("Activity mode updated in Firestore:", newActivity);
+      } catch (error) {
+        console.error("Error updating activity mode:", error);
+      }
+    }
+  };
 
   // ✅ MQTT connect (update chart theo gói dữ liệu)
   useEffect(() => {
@@ -97,6 +118,12 @@ export default function Home() {
 
     const handleMessage = (topic, message) => {
       try {
+        // If popup is showing and data is paused, skip processing
+        if (isDataPausedForPopup) {
+          console.log("Data paused during popup confirmation - skipping");
+          return;
+        }
+
         const data = JSON.parse(message.toString());
         const newBpm = data.BPM !== -999 ? data.BPM : lastValueRef.current.bpm;
         const newSpo2 = data.SpO2 !== -999 ? data.SpO2 : lastValueRef.current.spo2;
@@ -202,73 +229,91 @@ export default function Home() {
   useEffect(() => {
     if (bpm === null) return;
 
-    // Cập nhật danh sách BPM gần đây
-    setRecentBpmValues(prev => [...prev.slice(-5), bpm]);
+    // Phân tích dữ liệu hiện tại
+    const analysis = analyzeHeartData(bpm, spo2, temp, activityMode);
+    const hasWarning = analysis.warnings.length > 0;
 
-    // Chỉ kiểm tra sau khi có đủ 5 giá trị
-    if (recentBpmValues.length >= 5) {
-      const avgRecentBpm = recentBpmValues.reduce((a, b) => a + b, 0) / recentBpmValues.length;
-      const analysis = analyzeHeartData(avgRecentBpm, spo2, temp, activityMode);
-      
-      if (analysis.warnings.length > 0 && analysis.isActivityChange) {
-        // Clear timers cũ
-        if (warningTimerRef.current) {
-          clearTimeout(warningTimerRef.current);
-          warningTimerRef.current = null;
-        }
-        if (countdownTimerRef.current) {
-          clearInterval(countdownTimerRef.current);
-          countdownTimerRef.current = null;
-        }
-
-        setSuggestedActivity(analysis.suggestedActivity);
-        setCountdownTime(10);
-        setShowWarningPopup(true);
-        
-        // Bắt đầu đếm ngược và cập nhật message
-        const countdownInterval = setInterval(() => {
-          setCountdownTime(prev => {
-            const newCount = prev - 1;
-            if (newCount <= 0) {
-              clearInterval(countdownInterval);
-              if (showWarningPopup) {
-                setShowWarningPopup(false);
-                setShowAlertPopup(true);
-              }
-              return 0;
-            }
-            // Cập nhật message với thời gian đếm ngược
-            setWarningMessage(`Bạn đang ${analysis.suggestedActivity.toLowerCase()} phải không? (${newCount}s)`);
-            return newCount;
-          });
-        }, 1000);
-
-        // Set ban đầu cho message
-        setWarningMessage(`Bạn đang ${analysis.suggestedActivity.toLowerCase()} phải không? (10s)`);
-
-        // Set timer cho popup
-        const warningTimeout = setTimeout(() => {
-          if (showWarningPopup) {
-            setShowWarningPopup(false);
-            setShowAlertPopup(true);
-            setStatus({ 
-              text: "Báo động! Nhịp tim cực kì bất thường", 
-              type: "alert" 
-            });
-          }
-        }, 10000);
-
-        countdownTimerRef.current = countdownInterval;
-        warningTimerRef.current = warningTimeout;
-      }
+    // If popup is showing, skip threshold checking
+    if (showWarningPopup || isDataPausedForPopup) {
+      return;
     }
 
-    // Cleanup function
+    if (hasWarning) {
+      // Tăng counter khi có cảnh báo
+      setThresholdExceedCount(prev => {
+        const newCount = prev + 1;
+        console.log(`Threshold exceeded: ${newCount}/10`);
+
+        // Khi đạt 10 lần vượt ngưỡng, hiển thị popup
+        if (newCount >= 10) {
+          setSuggestedActivity(analysis.suggestedActivity);
+          setCountdownTime(10);
+          setShowWarningPopup(true);
+          setIsDataPausedForPopup(true); // Pause data intake
+          
+          // Clear old timers
+          if (warningTimerRef.current) {
+            clearTimeout(warningTimerRef.current);
+            warningTimerRef.current = null;
+          }
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+
+          // Start countdown
+          const countdownInterval = setInterval(() => {
+            setCountdownTime(prev => {
+              const newCount = prev - 1;
+              if (newCount <= 0) {
+                clearInterval(countdownInterval);
+                if (showWarningPopup) {
+                  setShowWarningPopup(false);
+                  setShowAlertPopup(true);
+                  setIsDataPausedForPopup(false); // Resume data
+                }
+                return 0;
+              }
+              setWarningMessage(`Bạn đang ${analysis.suggestedActivity.toLowerCase()} phải không? (${newCount}s)`);
+              return newCount;
+            });
+          }, 1000);
+
+          // Set initial message
+          setWarningMessage(`Bạn đang ${analysis.suggestedActivity.toLowerCase()} phải không? (10s)`);
+
+          // Auto close popup after 10 seconds
+          const warningTimeout = setTimeout(() => {
+            if (showWarningPopup) {
+              setShowWarningPopup(false);
+              setShowAlertPopup(true);
+              setStatus({ 
+                text: "Báo động! Nhịp tim cực kì bất thường", 
+                type: "alert" 
+              });
+              setIsDataPausedForPopup(false); // Resume data
+            }
+          }, 10000);
+
+          countdownTimerRef.current = countdownInterval;
+          warningTimerRef.current = warningTimeout;
+
+          // Reset counter
+          return 0;
+        }
+        return newCount;
+      });
+    } else {
+      // Reset counter when no warning
+      setThresholdExceedCount(0);
+    }
+
+    // Cleanup
     return () => {
       if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
       if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
     };
-  }, [bpm, activityMode, spo2, temp, showWarningPopup]);
+  }, [bpm, activityMode, spo2, temp, showWarningPopup, isDataPausedForPopup]);
 
   // thêm useEffect để cập nhật trạng thái
   useEffect(() => {
@@ -344,7 +389,7 @@ export default function Home() {
                     className="activity-option"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setActivityMode(mode);
+                      updateActivityMode(mode);
                       setShowActivityDropdown(false);
                     }}
                   >
@@ -365,21 +410,27 @@ export default function Home() {
                     // Clear all timers
                     if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
                     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                    if (dataPauseTimerRef.current) clearTimeout(dataPauseTimerRef.current);
                     
                     setShowWarningPopup(false);
-                    setActivityMode(suggestedActivity);
+                    updateActivityMode(suggestedActivity);
                     setStatus({ 
                       text: `Trạng thái: ${suggestedActivity} - Đã cập nhật trạng thái`, 
                       type: "normal" 
                     });
+                    setThresholdExceedCount(0); // Reset counter
+                    setIsDataPausedForPopup(false); // Resume data
                   }}>Có</button>
                   <button onClick={() => {
                     // Clear all timers
                     if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
                     if (countdownTimerRef.current) clearInterval(countdownTimerRef.current);
+                    if (dataPauseTimerRef.current) clearTimeout(dataPauseTimerRef.current);
                     
                     setShowWarningPopup(false);
                     setShowErrorPopup(true);
+                    setThresholdExceedCount(0); // Reset counter
+                    setIsDataPausedForPopup(false); // Resume data
                   }}>Không</button>
                 </div>
               </div>
@@ -390,7 +441,11 @@ export default function Home() {
             <div className="popup-overlay">
               <div className="popup-content error">
                 <h3>Lỗi thiết bị, vui lòng kiểm tra</h3>
-                <button onClick={() => setShowErrorPopup(false)}>Đóng</button>
+                <button onClick={() => {
+                  setShowErrorPopup(false);
+                  setThresholdExceedCount(0); // Reset counter
+                  setIsDataPausedForPopup(false); // Resume data
+                }}>Đóng</button>
               </div>
             </div>
           )}
@@ -399,7 +454,11 @@ export default function Home() {
             <div className="popup-overlay">
               <div className="popup-content alert">
                 <h3>Báo động! Nhịp tim cực kì bất thường</h3>
-                <button onClick={() => setShowAlertPopup(false)}>Đóng</button>
+                <button onClick={() => {
+                  setShowAlertPopup(false);
+                  setThresholdExceedCount(0); // Reset counter
+                  setIsDataPausedForPopup(false); // Resume data
+                }}>Đóng</button>
               </div>
             </div>
           )}

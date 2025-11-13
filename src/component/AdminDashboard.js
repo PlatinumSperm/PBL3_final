@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { collection, query, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import './AdminDashboard.css';
 import mqtt from 'mqtt';
@@ -9,8 +9,11 @@ import mqtt from 'mqtt';
 export default function AdminDashboard() {
     const [users, setUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
-    const [mqttData, setMqttData] = useState([]);
+    const [userMqttData, setUserMqttData] = useState({});
+    const [userStatus, setUserStatus] = useState({});
+    const [userActivity, setUserActivity] = useState({});
     const navigate = useNavigate();
+    const mqttClientRef = React.useRef(null);
 
     // ✅ Kiểm tra admin
     useEffect(() => {
@@ -22,15 +25,16 @@ export default function AdminDashboard() {
         return () => unsubscribe();
     }, [navigate]);
 
-    // ✅ Kết nối MQTT và lấy dữ liệu từ topic thongtinbenhnhan
+    // ✅ MQTT kết nối + lắng nghe dữ liệu
     useEffect(() => {
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        mqttClientRef.current = client;
 
         client.on('connect', () => {
             console.log('Connected to MQTT broker');
-            client.subscribe('thongtinbenhnhan', (err) => {
+            client.subscribe('thongtinbenhnhan/#', (err) => {
                 if (!err) {
-                    console.log('Subscribed to thongtinbenhnhan');
+                    console.log('Subscribed to thongtinbenhnhan/#');
                 }
             });
         });
@@ -38,113 +42,268 @@ export default function AdminDashboard() {
         client.on('message', (topic, message) => {
             try {
                 const data = JSON.parse(message.toString());
-                setMqttData((prev) => [
-                    {
-                        BPM: data.BPM,
-                        SpO2: data.SpO2,
-                        TempC: data.TempC,
-                        timestamp: new Date().toISOString(),
-                    },
-                    ...prev.slice(0, 49), // giữ 50 bản ghi gần nhất
-                ]);
+                const parts = topic?.split('/') || [];
+                const uid = parts[parts.length - 1] || null;
+
+                if (!uid) return;
+
+                setUserMqttData((prev) => ({
+                    ...prev,
+                    [uid]: {
+                        BPM: data.BPM !== -999 ? data.BPM : null,
+                        SpO2: data.SpO2 !== -999 ? data.SpO2 : null,
+                        TempC: data.TempC !== -999 ? data.TempC : null,
+                        IR: data.IR !== -999 ? data.IR : null,
+                        timestamp: new Date(),
+                    }
+                }));
+
+                setUserStatus((prev) => ({
+                    ...prev,
+                    [uid]: getStatusFromData(data)
+                }));
             } catch (error) {
                 console.error('Error parsing MQTT message:', error);
             }
         });
 
         return () => {
+            client.unsubscribe('thongtinbenhnhan/#');
             client.end();
         };
     }, []);
 
-    // ✅ Lấy danh sách người dùng từ Firestore
+    // ✅ Xác định trạng thái
+    const getStatusFromData = (data) => {
+        if (!data) return "no-data";
+
+        const bpm = data.BPM;
+        const spo2 = data.SpO2;
+        const tempC = data.TempC;
+
+        if (bpm === -999 || spo2 === -999 || tempC === -999) {
+            return 'no-data';
+        }
+
+        if (bpm < 50 || bpm > 120 || spo2 < 90 || tempC < 35 || tempC > 38) {
+            return 'alert';
+        }
+
+        return 'normal';
+    };
+
+    // ✅ Lấy danh sách users từ Firestore
     useEffect(() => {
         const q = query(collection(db, "users"));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const usersList = [];
             querySnapshot.forEach((doc) => {
-                if (doc.data().email !== 'admin@admin.com') {
-                    usersList.push({ id: doc.id, ...doc.data() });
+                const data = doc.data();
+                if (data.email !== 'admin@admin.com') {
+                    usersList.push({ id: doc.id, ...data });
+                    // Lấy activity mode từ Firestore nếu có
+                    if (data.activityMode) {
+                        setUserActivity((prev) => ({
+                            ...prev,
+                            [doc.id]: data.activityMode
+                        }));
+                    }
                 }
             });
             setUsers(usersList);
         });
-
         return () => unsubscribe();
     }, []);
 
-    // ✅ Hàm render giá trị với màu cảnh báo
-    const renderValue = (value, type) => {
-        if (typeof value !== "number" || value === -999) return "N/A";
+    // ✅ Nếu user không có dữ liệu MQTT sau 3 giây → no-data
+    useEffect(() => {
+        const timeouts = {};
+        Object.keys(userMqttData).forEach((uid) => {
+            if (timeouts[uid]) clearTimeout(timeouts[uid]);
+            timeouts[uid] = setTimeout(() => {
+                setUserStatus((prev) => ({
+                    ...prev,
+                    [uid]: 'no-data'
+                }));
+            }, 3000);
+        });
+        return () => {
+            Object.values(timeouts).forEach((t) => clearTimeout(t));
+        };
+    }, [userMqttData]);
 
-        let isWarning = false;
-
-        if (type === "BPM" && (value < 50 || value > 120)) isWarning = true;
-        if (type === "SpO2" && value < 90) isWarning = true;
-        if (type === "TempC" && (value < 35 || value > 38)) isWarning = true;
-
-        return (
-            <span style={{ color: isWarning ? "red" : "black", fontWeight: isWarning ? "bold" : "normal" }}>
-                {type === "TempC" ? value.toFixed(2) : value}
-            </span>
-        );
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'normal': return '#52c41a';
+            case 'alert': return '#ff4d4f';
+            default: return '#d9d9d9';
+        }
     };
+
+    const getStatusText = (status) => {
+        switch (status) {
+            case 'normal': return 'Bình thường';
+            case 'alert': return 'Báo động';
+            default: return 'Chưa có dữ liệu';
+        }
+    };
+
+    // ✅ Hàm đăng xuất
+    const handleLogout = async () => {
+        try {
+            await signOut(auth);
+            navigate('/signin');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+    };
+
+    const selectedUserData = selectedUser ? users.find(u => u.id === selectedUser) : null;
+    const selectedUserMqttData = selectedUser ? userMqttData[selectedUser] : null;
 
     return (
         <div className="admin-dashboard">
-            <h1>Admin Dashboard</h1>
-            
+            <div className="admin-header">
+                <h1>❤️ Quản Lý Sức Khỏe Bệnh Nhân</h1>
+                <button className="logout-btn" onClick={handleLogout}>
+                    🚪 Đăng Xuất
+                </button>
+            </div>
+
             <div className="dashboard-container">
-                {/* Cột danh sách user */}
-                <div className="users-list">
-                    <h2>Danh sách người dùng</h2>
-                    {users.map(user => (
-                        <button
-                            key={user.id}
-                            className={`user-button ${selectedUser === user.id ? 'selected' : ''}`}
-                            onClick={() => setSelectedUser(user.id)}
-                        >
-                            {user.email}
-                        </button>
-                    ))}
+
+                {/* Grid user */}
+                <div className="users-grid">
+                    {users.length > 0 ? (
+                        users.map(user => {
+                            const status = userStatus[user.id] || 'no-data';
+                            const bgColor = getStatusColor(status);
+                            const isSelected = selectedUser === user.id;
+
+                            return (
+                                <div
+                                    key={user.id}
+                                    className={`user-card ${isSelected ? 'selected' : ''}`}
+                                    style={{ borderColor: bgColor, backgroundColor: `${bgColor}15` }}
+                                    onClick={() => setSelectedUser(user.id)}
+                                >
+                                    <div className="user-card-header" style={{ backgroundColor: bgColor }}>
+                                        <span className="status-badge">{getStatusText(status)}</span>
+                                    </div>
+
+                                    <div className="user-card-content">
+
+                                        <div className="user-field">
+                                            <label>👤 Tên đăng nhập</label>
+                                            <p>{user.email?.split('@')[0] || 'Không rõ'}</p>
+                                        </div>
+
+                                        <div className="user-field">
+                                            <label>📧 Email</label>
+                                            <p>{user.email || 'Không rõ'}</p>
+                                        </div>
+
+                                        {user.phone && (
+                                            <div className="user-field">
+                                                <label>📱 Điện thoại</label>
+                                                <p>{user.phone}</p>
+                                            </div>
+                                        )}
+
+                                        {user.age && (
+                                            <div className="user-field">
+                                                <label>🎂 Tuổi</label>
+                                                <p>{user.age}</p>
+                                            </div>
+                                        )}
+
+                                        {user.city && (
+                                            <div className="user-field">
+                                                <label>🏙️ Thành phố</label>
+                                                <p>{user.city}</p>
+                                            </div>
+                                        )}
+
+                                        <div className="user-field">
+                                            <label>🏃 Trạng Thái Vận Động</label>
+                                            <p className="activity-status">{userActivity[user.id] || 'Chưa cập nhật'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <p className="no-users">Không có người dùng nào</p>
+                    )}
                 </div>
 
-                {/* Cột dữ liệu MQTT */}
-                <div className="data-display">
-                    <h2>Dữ liệu real-time</h2>
-                    <div className="data-table">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>BPM</th>
-                                    <th>SpO₂ (%)</th>
-                                    <th>Nhiệt độ (°C)</th>
-                                    <th>Date & Time</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {mqttData.length > 0 ? (
-                                    mqttData.map((data, index) => (
-                                        <tr key={index}>
-                                            <td>{renderValue(data.BPM, "BPM")}</td>
-                                            <td>{renderValue(data.SpO2, "SpO2")}</td>
-                                            <td>{renderValue(data.TempC , "TempC")}</td>
-                                            <td>
-                                                {data.timestamp
-                                                    ? new Date(data.timestamp).toLocaleString()
-                                                    : "N/A"}
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4">Chưa có dữ liệu</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                {/* Panel dữ liệu MQTT */}
+                {selectedUserData && (
+                    <div className="data-detail-panel">
+                        <h2>
+                            📈 Dữ liệu Thời Gian Thực – {selectedUserData.email || "Không rõ"}
+                        </h2>
+
+                        {selectedUserMqttData ? (
+                            <div className="mqtt-data-container">
+
+                                <div className="mqtt-item">
+                                    <div className="mqtt-label">Nhịp Tim (BPM)</div>
+                                    <div className="mqtt-value" style={{
+                                        color: selectedUserMqttData.BPM &&
+                                            (selectedUserMqttData.BPM < 50 || selectedUserMqttData.BPM > 120)
+                                            ? '#ff4d4f' : '#52c41a'
+                                    }}>
+                                        {selectedUserMqttData.BPM ?? 'N/A'}
+                                    </div>
+                                </div>
+
+                                <div className="mqtt-item">
+                                    <div className="mqtt-label">Oxy (SpO₂ %)</div>
+                                    <div className="mqtt-value" style={{
+                                        color: selectedUserMqttData.SpO2 && selectedUserMqttData.SpO2 < 90
+                                            ? '#ff4d4f' : '#52c41a'
+                                    }}>
+                                        {selectedUserMqttData.SpO2?.toFixed(1) ?? 'N/A'}
+                                    </div>
+                                </div>
+
+                                <div className="mqtt-item">
+                                    <div className="mqtt-label">Nhiệt độ (°C)</div>
+                                    <div className="mqtt-value" style={{
+                                        color: selectedUserMqttData.TempC &&
+                                            (selectedUserMqttData.TempC < 35 || selectedUserMqttData.TempC > 38)
+                                            ? '#ff4d4f' : '#52c41a'
+                                    }}>
+                                        {selectedUserMqttData.TempC?.toFixed(2) ?? 'N/A'}
+                                    </div>
+                                </div>
+
+                                <div className="mqtt-item">
+                                    <div className="mqtt-label">PPG (IR)</div>
+                                    <div className="mqtt-value">
+                                        {selectedUserMqttData.IR ?? 'N/A'}
+                                    </div>
+                                </div>
+
+                                <div className="mqtt-timestamp">
+                                    <span>⏰ Cập nhật lúc: {selectedUserMqttData.timestamp?.toLocaleTimeString('vi-VN')}</span>
+                                </div>
+
+                                <div className="mqtt-activity-section">
+                                    <div className="mqtt-activity-label">🏃 Trạng Thái Vận Động</div>
+                                    <div className="mqtt-activity-value">
+                                        {userActivity[selectedUser] || 'Chưa cập nhật'}
+                                    </div>
+                                </div>
+
+                            </div>
+                        ) : (
+                            <div className="no-data-message">⏳ Đang chờ dữ liệu...</div>
+                        )}
                     </div>
-                </div>
+                )}
+
             </div>
         </div>
     );
