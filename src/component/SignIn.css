@@ -23,7 +23,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+  background: linear-gradient(90deg, #FF6B6B, #FF8585, #FF6B6B);
   animation: shimmer 3s linear infinite;
 }
 
@@ -47,7 +47,7 @@
   margin-bottom: 32px;
   font-size: 32px;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8585 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -62,7 +62,7 @@
   width: 100%;
   padding: 16px 20px;
   margin: 12px 0;
-  border: 2px solid rgba(102, 126, 234, 0.2);
+  border: 2px solid rgba(255, 107, 107, 0.2);
   border-radius: 12px;
   font-size: 15px;
   background: rgba(255, 255, 255, 0.9);
@@ -72,11 +72,11 @@
 
 .auth-container input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #FF6B6B;
   background: #ffffff;
   box-shadow: 
-    0 0 0 4px rgba(102, 126, 234, 0.1),
-    0 8px 16px rgba(102, 126, 234, 0.15);
+    0 0 0 4px rgba(255, 107, 107, 0.1),
+    0 8px 16px rgba(255, 107, 107, 0.15);
   transform: translateY(-2px);
 }
 
@@ -108,9 +108,9 @@
 }
 
 .auth-btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8585 100%);
   color: #fff;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
   border: none;
 }
 
@@ -131,18 +131,18 @@
 
 .auth-btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
 }
 
 .auth-btn-secondary {
-  background: rgba(102, 126, 234, 0.1);
-  color: #667eea;
-  border: 2px solid rgba(102, 126, 234, 0.3);
+  background: rgba(255, 107, 107, 0.1);
+  color: #FF6B6B;
+  border: 2px solid rgba(255, 107, 107, 0.3);
 }
 
 .auth-btn-secondary:hover {
-  background: rgba(102, 126, 234, 0.2);
-  border-color: #667eea;
+  background: rgba(255, 107, 107, 0.2);
+  border-color: #FF6B6B;
   transform: translateY(-2px);
 }
 
@@ -150,20 +150,20 @@
   margin-top: 20px;
   display: block;
   font-size: 15px;
-  color: #667eea;
+  color: #FF6B6B;
   cursor: pointer;
   font-weight: 500;
   transition: all 0.3s ease;
 }
 
 .auth-link:hover {
-  color: #764ba2;
+  color: #FF8585;
   transform: translateX(4px);
 }
 
 /* Heart Icon Animation */
 .auth-container::after {
-  content: '💙';
+  content: '❤️';
   position: absolute;
   top: 20px;
   right: 20px;

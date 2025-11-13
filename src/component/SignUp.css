@@ -26,7 +26,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #6366F1, #8B5CF6, #EC4899);
+  background: linear-gradient(90deg, #FF6B6B, #FF8585, #FF6B6B);
   border-radius: 20px 20px 0 0;
 }
 
@@ -44,14 +44,14 @@
 .auth-container .heart-icon {
   font-size: 64px;
   margin-bottom: 16px;
-  filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.3));
+  filter: drop-shadow(0 4px 12px rgba(255, 107, 107, 0.3));
 }
 
 .auth-container h2 {
   margin-bottom: 32px;
   font-size: 32px;
   font-weight: bold;
-  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8585 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -75,8 +75,8 @@
 
 .auth-container input:focus {
   outline: none;
-  border-color: #6366F1;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  border-color: #FF6B6B;
+  box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1);
   background: white;
 }
 
@@ -104,14 +104,14 @@
 }
 
 .auth-btn-primary {
-  background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF8585 100%);
   color: #fff;
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 16px rgba(255, 107, 107, 0.3);
 }
 
 .auth-btn-primary:hover {
-  background: linear-gradient(135deg, #5558E3 0%, #7C3AED 100%);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, #FF5555 0%, #FF7575 100%);
+  box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
   transform: translateY(-2px);
 }
 
@@ -127,8 +127,8 @@
 
 .auth-btn-secondary:hover {
   background: #ffffff;
-  border-color: #6366F1;
-  color: #6366F1;
+  border-color: #FF6B6B;
+  color: #FF6B6B;
   transform: translateY(-2px);
 }
 
@@ -136,14 +136,14 @@
   margin-top: 20px;
   display: block;
   font-size: 14px;
-  color: #6366F1;
+  color: #FF6B6B;
   cursor: pointer;
   font-weight: 500;
 }
 
 .auth-link:hover {
   text-decoration: underline;
-  color: #5558E3;
+  color: #FF8585;
 }
 
 .divider {
