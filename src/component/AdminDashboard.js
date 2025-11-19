@@ -85,7 +85,7 @@ export default function AdminDashboard() {
             return 'no-data';
         }
 
-        if (bpm < 50 || bpm > 120 || spo2 < 90 || tempC < 35 || tempC > 38) {
+        if (bpm < 50 || bpm > 120 || spo2 < 90 || tempC < 26 || tempC > 40) {
             return 'alert';
         }
 
@@ -272,7 +272,7 @@ export default function AdminDashboard() {
                                     <div className="mqtt-label">Nhiệt độ (°C)</div>
                                     <div className="mqtt-value" style={{
                                         color: selectedUserMqttData.TempC &&
-                                            (selectedUserMqttData.TempC < 35 || selectedUserMqttData.TempC > 38)
+                                            (selectedUserMqttData.TempC < 26 || selectedUserMqttData.TempC > 40)
                                             ? '#ff4d4f' : '#52c41a'
                                     }}>
                                         {selectedUserMqttData.TempC?.toFixed(2) ?? 'N/A'}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 import mqtt from 'mqtt';
 import { analyzeHeartData } from '../utils/heartrules';
 import Navbar from './Navbar';
@@ -19,6 +20,7 @@ export default function HealthHistory() {
     temp: null,
     ir: null
   });
+  const [activityMode, setActivityMode] = useState('Nghỉ ngơi'); // ✅ Lấy activity mode hiện tại
 
   const lastDataRef = useRef(null);
   const mqttClientRef = useRef(null);
@@ -56,6 +58,20 @@ export default function HealthHistory() {
     return () => unsubscribe();
   }, [navigate]);
 
+  // ✅ Listen Firestore để lấy activityMode hiện tại
+  useEffect(() => {
+    if (!uid) return;
+
+    const userDocRef = doc(db, 'users', uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists() && docSnap.data().activityMode) {
+        setActivityMode(docSnap.data().activityMode);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [uid]);
+
   // MQTT và Data Management
   useEffect(() => {
     if (!uid) return;
@@ -88,8 +104,8 @@ export default function HealthHistory() {
         };
 
         // Use analyzeHeartData to determine warnings/status similarly to Home.js
-        // We don't have activityMode here, default to 'Nghỉ ngơi' as in heartrules
-        const analysis = analyzeHeartData(newData.bpm, newData.spo2, newData.temp, 'Nghỉ ngơi');
+        // ✅ Dùng activityMode hiện tại từ Firestore
+        const analysis = analyzeHeartData(newData.bpm, newData.spo2, newData.temp, activityMode);
 
         const now = new Date();
 
@@ -106,6 +122,7 @@ export default function HealthHistory() {
           }),
           timestampRaw: now.toISOString(), // ✅ thêm trường để so sánh filter
           status: analysis.warnings.length > 0 ? 'alert' : 'normal',
+          activityMode: activityMode, // ✅ Lưu activity mode khi báo động
           alerts: {
             bpm: analysis.warnings.includes('Nhịp tim bất thường'),
             spo2: analysis.warnings.includes('SpO2 thấp'),
@@ -116,11 +133,14 @@ export default function HealthHistory() {
         lastDataRef.current = dataWithStatus;
         setCurrentData(dataWithStatus);
 
-        setHealthData(prev => {
-          const newHealthData = [...prev, dataWithStatus];
-          localStorage.setItem(`historyData_${uid}`, JSON.stringify(newHealthData.slice(-1000)));
-          return newHealthData;
-        });
+        // ✅ Chỉ lưu dữ liệu khi có cảnh báo "Nhịp tim bất thường"
+        if (analysis.warnings.includes('Nhịp tim bất thường')) {
+          setHealthData(prev => {
+            const newHealthData = [...prev, dataWithStatus];
+            localStorage.setItem(`historyData_${uid}`, JSON.stringify(newHealthData.slice(-1000)));
+            return newHealthData;
+          });
+        }
       } catch (err) {
         console.error("Error parsing MQTT:", err);
       }
@@ -132,16 +152,15 @@ export default function HealthHistory() {
       client.unsubscribe(topic);
       client.end();
     };
-  }, [uid]); // ✅ chạy lại khi uid thay đổi
+  }, [uid, activityMode]); // ✅ chạy lại khi uid hoặc activityMode thay đổi
 
-  // Filtered data - Chỉ lấy dữ liệu báo động
-  const filteredData = healthData.filter(item => item.status === 'alert');
+  // ✅ Filtered data - Chỉ lấy dữ liệu "Nhịp tim bất thường"
+  const filteredData = healthData.filter(item => item.alerts?.bpm === true);
 
-  // ✅ Apply custom filter
+  // ✅ Apply custom filter - Giữ nguyên logic time range
   const applyFilter = (data) => {
     return data.filter(item => {
-      if (item.status !== 'alert') return false;
-
+      // ✅ Đã được lọc ở handleMessage, chỉ chứa BPM alerts
       if (activeFilters.timeFrom || activeFilters.timeTo) {
         const itemDate = new Date(item.timestampRaw); // dùng ISO để so sánh
         if (activeFilters.timeFrom) {
@@ -152,12 +171,6 @@ export default function HealthHistory() {
           const toDate = new Date(activeFilters.timeTo);
           if (itemDate > toDate) return false;
         }
-      }
-
-      const selectedMetrics = Object.keys(activeFilters.metrics).filter(k => activeFilters.metrics[k]);
-      if (selectedMetrics.length > 0) {
-        const matched = selectedMetrics.some(metric => item.alerts[metric]);
-        if (!matched) return false;
       }
 
       return true;
@@ -251,33 +264,8 @@ export default function HealthHistory() {
               </div>
 
               <div className="filter-row">
-                <label>Lọc theo loại báo động:</label>
-                <div className="filter-metrics">
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={filterMetrics.bpm} 
-                      onChange={() => setFilterMetrics({...filterMetrics, bpm: !filterMetrics.bpm})}
-                    />
-                    Nhịp tim
-                  </label>
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={filterMetrics.spo2} 
-                      onChange={() => setFilterMetrics({...filterMetrics, spo2: !filterMetrics.spo2})}
-                    />
-                    SpO₂
-                  </label>
-                  <label>
-                    <input 
-                      type="checkbox" 
-                      checked={filterMetrics.temp} 
-                      onChange={() => setFilterMetrics({...filterMetrics, temp: !filterMetrics.temp})}
-                    />
-                    Nhiệt độ
-                  </label>
-                </div>
+                <label style={{color: '#666', fontSize: '13px'}}>Bảng chỉ hiển thị dữ liệu "Nhịp tim bất thường"</label>
+                <p style={{margin: '8px 0 0 0', color: '#999', fontSize: '12px'}}>Để lọc thêm, sử dụng bộ lọc thời gian bên dưới</p>
               </div>
 
               <div className="filter-buttons">
@@ -312,7 +300,7 @@ export default function HealthHistory() {
                   <th>Nhịp tim (BPM)</th>
                   <th>SpO₂ (%)</th>
                   <th>Nhiệt độ (°C)</th>
-                  <th>Trạng thái</th>
+                  <th>Chế độ vận động</th>
                 </tr>
               </thead>
               <tbody>
@@ -322,7 +310,7 @@ export default function HealthHistory() {
                     <td className={item.alerts?.bpm ? 'alert-value' : ''}>{item.bpm}</td>
                     <td className={item.alerts?.spo2 ? 'alert-value' : ''}>{item.spo2}</td>
                     <td className={item.alerts?.temp ? 'alert-value' : ''}>{item.temp}</td>
-                    <td>{item.status === 'normal' ? 'Bình thường' : 'Báo động'}</td>
+                    <td>{item.activityMode || 'Nghỉ ngơi'}</td>
                   </tr>
                 ))}
               </tbody>
