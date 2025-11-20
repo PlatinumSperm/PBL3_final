@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sức khỏe của bạn</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- AOS CSS -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <!-- Animate.css (cho modal) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+</head>
+<body class="bg-pink-100">
+
+  <!-- Navbar -->
+  <nav class="flex justify-between items-center px-8 py-4 bg-pink-100 shadow-md" data-aos="fade-down">
+    <div class="text-2xl font-bold">Logo</div>
+    <a href="#" class="px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:scale-105 transition-transform">Khám phá</a>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="text-center py-16 px-6">
+    <h1 class="text-4xl font-bold text-gray-800 mb-6" data-aos="fade-up" data-aos-delay="200">
+      Chào mừng đến với sức khỏe của bạn
+    </h1>
+    <p class="text-lg text-gray-600 max-w-2xl mx-auto mb-8" data-aos="fade-up" data-aos-delay="400">
+      Trang quản lý sức khỏe của chúng tôi giúp bạn theo dõi nhịp tim và dự đoán tình trạng sức khỏe một cách chính xác. 
+      Hãy khám phá những tính năng hữu ích để cải thiện sức khỏe của bạn ngay hôm nay.
+    </p>
+    <div class="flex justify-center space-x-4" data-aos="fade-up" data-aos-delay="600">
+      <a href="#" class="px-6 py-3 bg-red-500 text-white rounded-lg shadow hover:scale-110 transition-transform">Khám Phá</a>
+      <button onclick="openModal()" class="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg shadow hover:scale-110 transition-transform">
+        Đăng Nhập
+      </button>
+    </div>
+  </section>
+
+  <!-- Image Section -->
+  <section class="flex justify-center px-6 pb-16">
+    <img src="https://images.pexels.com/photos/8373583/pexels-photo-8373583.jpeg" 
+         alt="Người đàn ông cầm điện thoại" 
+         class="rounded-lg shadow-lg max-w-4xl w-full" 
+         data-aos="fade-up" data-aos-delay="800">
+  </section>
+
+  <!-- Section 2: Theo dõi nhịp tim -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center px-8 py-16 bg-white">
+    <div data-aos="fade-right">
+      <h2 class="text-3xl font-bold mb-4">
+        Theo dõi nhịp tim của bạn mọi lúc, mọi nơi với công nghệ tiên tiến.
+      </h2>
+      <p class="text-gray-600 mb-6">
+        Chúng tôi cung cấp thông tin nhịp tim thời gian thực, giúp bạn theo dõi sức khỏe một cách hiệu quả.
+        Với giao diện thân thiện, bạn có thể dễ dàng truy cập và quản lý dữ liệu sức khỏe của mình.
+      </p>
+      <div class="grid grid-cols-2 gap-6 text-gray-700">
+        <div>
+          <h3 class="font-semibold">Nhịp Tim</h3>
+          <p class="text-sm">Nhận thông báo ngay lập tức khi nhịp tim của bạn thay đổi bất thường.</p>
+        </div>
+        <div>
+          <h3 class="font-semibold">Theo Dõi</h3>
+          <p class="text-sm">Dễ dàng theo dõi tiến trình sức khỏe của bạn mỗi ngày.</p>
+        </div>
+      </div>
+    </div>
+    <div data-aos="fade-left">
+      <img src="https://images.pexels.com/photos/3184296/pexels-photo-3184296.jpeg" 
+           alt="Theo dõi nhịp tim" class="rounded-lg shadow-lg">
+    </div>
+  </section>
+
+  <!-- Section 3: Dự báo sức khỏe -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center px-8 py-16 bg-white">
+    <div data-aos="fade-right">
+      <div class="text-3xl mb-2">❤️</div>
+      <h2 class="text-3xl font-bold mb-4">Dự báo sức khỏe cá nhân hóa</h2>
+      <p class="text-gray-600 mb-6">
+        Chúng tôi cung cấp dự báo sức khỏe dựa trên dữ liệu cá nhân của bạn, giúp bạn theo dõi và cải thiện tình trạng sức khỏe.
+        Với công nghệ tiên tiến, bạn sẽ nhận được những thông tin hữu ích để đưa ra quyết định tốt hơn cho sức khỏe của mình.
+      </p>
+      <div class="flex space-x-4">
+        <a href="#" class="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg shadow hover:scale-105 transition">Tìm Hiểu</a>
+        <a href="#" class="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg shadow hover:scale-105 transition">Đăng Ký</a>
+      </div>
+    </div>
+    <div data-aos="fade-left">
+      <img src="https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg" 
+           alt="Dự báo sức khỏe" class="rounded-lg shadow-lg">
+    </div>
+  </section>
+
+  <!-- Section 4: Theo dõi môi trường -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center px-8 py-16 bg-pink-100">
+    <div data-aos="fade-right">
+      <h2 class="text-3xl font-bold mb-4">
+        Theo dõi nhiệt độ môi trường để bảo vệ sức khỏe của bạn.
+      </h2>
+      <p class="text-gray-700 mb-6">
+        Chúng tôi cung cấp thông tin nhiệt độ chính xác và kịp thời. Giúp bạn điều chỉnh hoạt động hàng ngày phù hợp với thời tiết.
+      </p>
+      <div class="grid grid-cols-2 gap-6 text-gray-700">
+        <div>
+          <h3 class="font-semibold">🌡️ Nhiệt độ hiện tại</h3>
+          <p class="text-sm">Nhiệt độ môi trường được cập nhật liên tục để bạn luôn chủ động.</p>
+        </div>
+        <div>
+          <h3 class="font-semibold">☀️ Dự báo thời tiết</h3>
+          <p class="text-sm">Dự báo thời tiết giúp bạn lên kế hoạch cho ngày của mình.</p>
+        </div>
+      </div>
+    </div>
+    <div data-aos="fade-left">
+      <img src="https://images.pexels.com/photos/1181695/pexels-photo-1181695.jpeg" 
+           alt="Theo dõi môi trường" class="rounded-lg shadow-lg">
+    </div>
+  </section>
+
+  <!-- Section 5: Call to Action -->
+  <section class="text-center px-8 py-16 bg-gradient-to-b from-blue-900 to-blue-700 text-white">
+    <h2 class="text-3xl font-bold mb-4">Đăng nhập hoặc tạo tài khoản</h2>
+    <p class="mb-6">
+      Khám phá tất cả các tính năng tuyệt vời của chúng tôi bằng cách đăng nhập ngay hôm nay!
+    </p>
+    <div class="flex justify-center space-x-4 mb-8">
+      <button onclick="openModal()" class="px-6 py-3 bg-white text-blue-800 font-semibold rounded-lg shadow hover:scale-105 transition">Đăng nhập</button>
+      <a href="#" class="px-6 py-3 bg-white text-blue-800 font-semibold rounded-lg shadow hover:scale-105 transition">Đăng ký</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="bg-pink-100 px-8 py-10 grid grid-cols-1 md:grid-cols-4 gap-8 text-gray-700 text-sm">
+    <div>
+      <h3 class="text-xl font-bold mb-4">Logo</h3>
+      <p class="mb-2">Địa chỉ: Tầng 1, 12 Đường Mẫu, Sydney NSW 2000</p>
+      <p class="mb-2">Liên hệ: 1800 123 456 <br> email@ly.com</p>
+    </div>
+    <div class="col-span-1 md:col-span-4 text-center text-xs text-gray-500 mt-8">
+      © 2025 Relume. Tất cả quyền được bảo lưu. | Chính sách Bảo mật | Điều khoản Dịch vụ | Cài đặt Cookies
+    </div>
+  </footer>
+
+  <!-- Modal Đăng nhập -->
+  <div id="loginModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white p-8 rounded-xl shadow-lg w-96 relative animate__animated animate__fadeInDown">
+      <button onclick="closeModal()" class="absolute top-2 right-2 text-gray-500 hover:text-red-500 text-xl">&times;</button>
+      <h2 class="text-2xl font-bold text-center mb-6">Đăng Nhập</h2>
+      <form>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Email</label>
+          <input type="email" placeholder="Nhập email" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400">
+        </div>
+        <div class="mb-4">
+          <label class="block text-gray-700 mb-2">Mật khẩu</label>
+          <input type="password" placeholder="Nhập mật khẩu" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400">
+        </div>
+        <button type="submit" class="w-full bg-red-500 text-white py-2 rounded-lg hover:bg-red-600 transition">Đăng Nhập</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script>
+    AOS.init({
+      duration: 1000,
+      once: true,
+    });
+
+    function openModal() {
+      document.getElementById('loginModal').classList.remove('hidden');
+    }
+    function closeModal() {
+      document.getElementById('loginModal').classList.add('hidden');
+    }
+  </script>
+
+</body>
+</html>
